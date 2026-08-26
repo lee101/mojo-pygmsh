@@ -86,12 +86,47 @@ def test_distance_evaluate_matches_numpy_reference():
     assert field.evaluate(query) == pytest.approx([0., 5.])
 
 
+@pytest.mark.parametrize("nquery", [1003, 262145])
+def test_distance_serial_tail_and_parallel_threshold(nquery):
+    rng = np.random.default_rng(nquery)
+    query = rng.normal(size=(nquery, 3))
+    sources = rng.normal(size=(5, 3))
+    got = Distance(sources).evaluate(query)
+    expected = np.sqrt(((query[:, None] - sources[None]) ** 2).sum(axis=2).min(axis=1))
+    assert got == pytest.approx(expected)
+
+
+def test_distance_gpu_path_or_cpu_fallback(monkeypatch):
+    rng = np.random.default_rng(12)
+    query = rng.normal(size=(1003, 3))
+    field = Distance(rng.normal(size=(19, 3)))
+    expected = field.evaluate(query)
+    from pygmsh import _gpu
+    if _gpu.available():
+        assert field.evaluate(query, device="gpu") == pytest.approx(expected)
+    monkeypatch.setattr(_gpu, "distance", lambda *_: None)
+    assert field.evaluate(query, device="gpu") == pytest.approx(expected)
+
+
 def test_composed_fields_use_pointwise_min_and_max():
     p = np.array([[0., 0., 0.], [1., 0., 0.], [3., 0., 0.]])
     left = Threshold(Distance([[0, 0, 0]]), .1, .8, 0., 3.)
     right = Threshold(Distance([[3, 0, 0]]), .2, .6, 0., 3.)
     assert Min([left, right]).evaluate(p) == pytest.approx(np.minimum(left.evaluate(p), right.evaluate(p)))
     assert Max([left, right]).evaluate(p) == pytest.approx(np.maximum(left.evaluate(p), right.evaluate(p)))
+
+
+def test_composed_fields_simd_body_and_scalar_tail():
+    class Values:
+        def __init__(self, values): self.values = values
+        def evaluate(self, _): return self.values
+
+    rng = np.random.default_rng(8)
+    points = rng.normal(size=(1003, 3))
+    values = rng.normal(size=(4, len(points)))
+    fields = [Values(row) for row in values]
+    assert Min(fields).evaluate(points) == pytest.approx(values.min(axis=0))
+    assert Max(fields).evaluate(points) == pytest.approx(values.max(axis=0))
 
 
 def test_gmsh_callback_signature_controls_mesh_size():

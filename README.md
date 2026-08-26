@@ -46,6 +46,10 @@ assert mesh.cells_dict["triangle"].shape[1] == 3
 np.savetxt("points.txt", mesh.points)
 ```
 
+`Distance.evaluate(points, device="gpu")` explicitly selects the optional GPU
+kernel. CPU remains the default, and a missing or busy GPU silently falls back
+to the CPU result.
+
 The project tasks are all run through Pixi:
 
 ```bash
@@ -57,30 +61,39 @@ pixi run bench
 ## Performance
 
 Measured with `pixi run bench` on Linux 6.8, Intel Xeon E5-2697 v4 (72 logical
-CPUs), Mojo 1.0.0b3.dev2026072406, NumPy and pygmsh 7.1.17. Values are the
-best of three runs.
+CPUs), an NVIDIA RTX 5090, Mojo 1.1.0.dev2026081105, NumPy and pygmsh 7.1.17.
+Values are the best of three runs.
 
 | case | mojo-pygmsh | reference | ratio |
 | --- | ---: | ---: | ---: |
-| Threshold field (100k x 32) | 5.8 ms | NumPy 177.7 ms | 30.67x faster |
-| Rectangle mesh (80,000 triangles) | 0.7 ms | pygmsh/Gmsh 2898.8 ms | 4078.01x faster |
+| Distance field (100k x 32) | 4.7 ms | NumPy 196.5 ms | 42.24x faster |
+| Threshold field (100k x 32) | 5.7 ms | NumPy 254.5 ms | 44.99x faster |
+| Min field (4 x 100k x 8) | 5.6 ms | NumPy 169.5 ms | 30.47x faster |
+| Max field (4 x 100k x 8) | 6.7 ms | NumPy 195.4 ms | 29.31x faster |
+| Distance GPU (500k x 128) | 5.6 ms | Mojo CPU 16.0 ms | 2.84x faster |
+| Rectangle mesh (80,000 triangles) | 0.8 ms | pygmsh/Gmsh 2897.2 ms | 3768.06x faster |
 
 The Gmsh number intentionally measures a fresh `pygmsh` process from geometry
 creation through mesh extraction, because Gmsh owns a process-global model.
 It therefore includes its initialization cost; it is a useful end-to-end
 comparison, not a claim about an already-initialized Gmsh kernel alone.
 
-The current kernels are memory-bound (well below 2 FLOP/byte), so no GPU path
-is included: host-device transfer would make these workloads slower.
+Nearest-source distance has enough arithmetic intensity when the source set is
+reused from cache to justify an explicit GPU path at large sizes. The GPU row
+above includes context creation, about 16 MiB of device allocation, host-device
+copies, and synchronization. Min/Max reduction and mesh construction remain on
+the CPU because they are memory-bound.
 
 ## How it works
 
 The Python layer allocates contiguous NumPy `float64` point buffers and
 `int64` connectivity buffers. `ctypes` passes their addresses as `Int` values
-to one Mojo compilation unit (`src/capi.mojo`), whose exported C ABI rebuilds
-typed pointers. Mojo never owns or allocates output memory. Rectangle filling,
-nearest-source threshold evaluation, and pointwise field reduction therefore
-run directly over the NumPy memory layout, with one FFI call per operation.
+to the CPU Mojo compilation unit (`src/capi.mojo`), whose exported C ABI
+rebuilds typed pointers. Mojo never owns or allocates CPU output memory.
+Rectangle filling, nearest-source distance and threshold evaluation, and
+pointwise field reduction therefore run directly over the NumPy memory layout,
+with one FFI call per operation. The optional GPU compilation unit allocates and
+frees its device buffers within each explicit GPU call.
 
 Tests compare rectangle and circle domains and areas with installed upstream
 `pygmsh`/Gmsh in an isolated interpreter; field values also compare to a

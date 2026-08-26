@@ -16,12 +16,21 @@ class Distance:
             raise ValueError("Distance needs at least one point")
         self.points = _points(points)
 
-    def evaluate(self, x):
+    def evaluate(self, x, device="cpu"):
         x = _points(x)
         if not len(x):
             return np.empty(0, dtype=np.float64)
-        d2 = ((x[:, None, :] - self.points[None, :, :]) ** 2).sum(axis=2)
-        return np.sqrt(d2.min(axis=1))
+        if device not in ("cpu", "gpu"):
+            raise ValueError("device must be 'cpu' or 'gpu'")
+        if device == "gpu":
+            from ._gpu import distance
+            gpu_result = distance(x, self.points)
+            if gpu_result is not None:
+                return gpu_result
+        result = np.empty(len(x), dtype=np.float64)
+        lib().mpg_distance_field(addr(x, np.float64), len(x), addr(self.points, np.float64),
+                                 len(self.points), addr(result, np.float64))
+        return result
 
 
 class Threshold:

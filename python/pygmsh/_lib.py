@@ -15,6 +15,7 @@ I = ctypes.c_int64
 F = ctypes.c_double
 _SIGNATURES = {
     "mpg_rectangle_mesh": ([F, F, F, F, I, I, I, I], None),
+    "mpg_distance_field": ([I, I, I, I, I], None),
     "mpg_threshold_field": ([I, I, I, I, F, F, F, F, I], None),
     "mpg_min_field": ([I, I, I, I], None),
     "mpg_max_field": ([I, I, I, I], None),

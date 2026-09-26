@@ -1,6 +1,6 @@
 """Optional GPU distance-field kernel with CPU fallback handled by Python."""
 
-from std.gpu import global_idx
+from max.gpu import global_idx
 from max.gpu.host import DeviceContext
 from std.math import sqrt
 

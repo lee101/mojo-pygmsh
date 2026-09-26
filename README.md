@@ -81,8 +81,9 @@ comparison, not a claim about an already-initialized Gmsh kernel alone.
 Nearest-source distance has enough arithmetic intensity when the source set is
 reused from cache to justify an explicit GPU path at large sizes. The GPU row
 above includes context creation, about 16 MiB of device allocation, host-device
-copies, and synchronization. Min/Max reduction and mesh construction remain on
-the CPU because they are memory-bound.
+copies, and synchronization. The CPU distance field splits across physical
+cores once the query count passes 262,144. Min/Max reduction and mesh
+construction remain on the CPU because they are memory-bound.
 
 ## How it works
 

@@ -2,13 +2,11 @@
 
 from max.algorithm import parallelize
 from std.math import sqrt
-from std.sys import simd_width_of as simdwidthof
-from std.sys.info import num_physical_cores
+from std.sys.info import num_physical_cores, simd_width_of as simdwidthof
 
 comptime Ptr = UnsafePointer[Float64, AnyOrigin[mut=True]]
 comptime IPtr = UnsafePointer[Int64, AnyOrigin[mut=True]]
 comptime DISTANCE_PARALLEL_THRESHOLD = 262144
-
 
 def distance_range(
     query: Ptr, sources: Ptr, result: Ptr, nsources: Int, begin: Int, end: Int
@@ -42,13 +40,12 @@ def mpg_distance_field(
         return
     var workers = min(nquery, num_physical_cores())
 
-    @parameter
-    def work(worker: Int):
+    def work(worker: Int) {imm}:
         var begin = worker * nquery // workers
         var end = (worker + 1) * nquery // workers
         distance_range(query, sources, result, nsources, begin, end)
 
-    parallelize[work](workers, workers)
+    parallelize(work, workers, workers)
 
 
 @export("mpg_rectangle_mesh")

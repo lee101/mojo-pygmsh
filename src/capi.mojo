@@ -133,7 +133,7 @@ def mpg_min_field(values_addr: Int, nfields: Int, npoints: Int, result_addr: Int
     var vector_end = npoints - npoints % W
     var i = 0
     while i < vector_end:
-        result.store(i, values.load[width=W](i))
+        result.store(i, values.unsafe_load[width=W](i))
         i += W
     while i < npoints:
         result[i] = values[i]
@@ -142,7 +142,7 @@ def mpg_min_field(values_addr: Int, nfields: Int, npoints: Int, result_addr: Int
         i = 0
         var offset = j * npoints
         while i < vector_end:
-            result.store(i, min(result.load[width=W](i), values.load[width=W](offset + i)))
+            result.store(i, min(result.unsafe_load[width=W](i), values.unsafe_load[width=W](offset + i)))
             i += W
         while i < npoints:
             if values[offset + i] < result[i]:
@@ -160,7 +160,7 @@ def mpg_max_field(values_addr: Int, nfields: Int, npoints: Int, result_addr: Int
     var vector_end = npoints - npoints % W
     var i = 0
     while i < vector_end:
-        result.store(i, values.load[width=W](i))
+        result.store(i, values.unsafe_load[width=W](i))
         i += W
     while i < npoints:
         result[i] = values[i]
@@ -169,7 +169,7 @@ def mpg_max_field(values_addr: Int, nfields: Int, npoints: Int, result_addr: Int
         i = 0
         var offset = j * npoints
         while i < vector_end:
-            result.store(i, max(result.load[width=W](i), values.load[width=W](offset + i)))
+            result.store(i, max(result.unsafe_load[width=W](i), values.unsafe_load[width=W](offset + i)))
             i += W
         while i < npoints:
             if values[offset + i] > result[i]:
